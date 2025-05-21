@@ -48,4 +48,4 @@ jobs:
           git fetch
           git checkout -b deploy origin/deploy || git checkout deploy
           git merge main --allow-unrelated-histories
-          git push origin deploy 
+          git push origin deploy  
