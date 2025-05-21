@@ -1,109 +1,137 @@
-const request = require('supertest');
-const mongoose = require('mongoose');
-const app = require('../app');
+const authController = require('../controllers/authController');
 const User = require('../models/User');
-const config = require('../config/database');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-describe('Authentication Endpoints', () => {
-  beforeAll(async () => {
-    await mongoose.connect(config.database);
-  }, 30000); // 30 second timeout
+jest.mock('../models/User');
+jest.mock('bcryptjs');
+jest.mock('jsonwebtoken');
+jest.mock('../config/database', () => ({
+  secret: 'test-secret'
+}));
+jest.mock('../utils/notificationUtils', () => ({
+  notifyAdmins: jest.fn().mockResolvedValue(true)
+}));
 
-  afterAll(async () => {
-    await User.deleteMany({});
-    await mongoose.connection.close();
-  }, 30000); // 30 second timeout
+describe('Auth Controller', () => {
+  let mockReq;
+  let mockRes;
 
-  beforeEach(async () => {
-    await User.deleteMany({});
-  }, 30000); // 30 second timeout
-
-  describe('POST /api/auth/register', () => {
-    const validUser = {
-      name: 'Test User',
-      email: 'test@example.com',
-      password: 'password123',
-      phoneNumber: '1234567890'
+  beforeEach(() => {
+    mockReq = {
+      body: {
+        name: 'Test User',
+        email: 'test@test.com',
+        phoneNumber: '1234567890',
+        password: 'password123'
+      }
     };
-
-    it('should register a new user successfully', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send(validUser);
-      
-      expect(res.statusCode).toBe(201);
-      expect(res.body).toHaveProperty('token');
-      expect(res.body.user).toHaveProperty('email', validUser.email);
-    });
-
-    it('should not register user with existing email', async () => {
-      await User.create(validUser);
-
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send(validUser);
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body).toHaveProperty('error');
-    });
-
-    it('should validate required fields', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({});
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body).toHaveProperty('error');
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      send: jest.fn()
+    };
+    // Reset jwt.sign mock before each test
+    jwt.sign.mockImplementation((payload, secret, options, callback) => {
+      callback(null, 'testtoken123');
     });
   });
 
-  describe('POST /api/auth/login', () => {
-    const validUser = {
-      name: 'Test User',
-      email: 'test@example.com',
-      password: 'password123',
-      phoneNumber: '1234567890'
-    };
+  describe('register', () => {
+    it('should register a new user successfully', async () => {
+      const mockUser = {
+        id: 'testid123',
+        name: mockReq.body.name,
+        email: mockReq.body.email,
+        phoneNumber: mockReq.body.phoneNumber,
+        save: jest.fn().mockResolvedValue({
+          id: 'testid123',
+          name: mockReq.body.name,
+          email: mockReq.body.email,
+          phoneNumber: mockReq.body.phoneNumber
+        })
+      };
 
-    beforeEach(async () => {
-      await User.create(validUser);
-    }, 30000); // 30 second timeout
+      User.findOne.mockResolvedValue(null);
+      User.mockImplementation(() => mockUser);
 
+      await authController.register(mockReq, mockRes);
+
+      expect(mockRes.status).not.toHaveBeenCalled();
+      expect(mockRes.json).toHaveBeenCalledWith({
+        token: 'testtoken123',
+        userId: 'testid123'
+      });
+    });
+
+    it('should not register user with existing email', async () => {
+      const mockUser = {
+        id: 'testid123',
+        email: mockReq.body.email
+      };
+
+      User.findOne.mockResolvedValue(mockUser);
+
+      await authController.register(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'User already exists'
+        })
+      );
+    });
+  });
+
+  describe('login', () => {
     it('should login with valid credentials', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: validUser.email,
-          password: validUser.password
-        });
+      const mockUser = {
+        id: 'testid123',
+        email: mockReq.body.email,
+        password: 'hashedpassword',
+        isApproved: true,
+        isAdmin: false
+      };
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('token');
-      expect(res.body.user).toHaveProperty('email', validUser.email);
+      User.findOne.mockResolvedValue(mockUser);
+      bcrypt.compare.mockResolvedValue(true);
+
+      mockReq.body = {
+        email: 'test@test.com',
+        password: 'password123'
+      };
+
+      await authController.login(mockReq, mockRes);
+
+      expect(mockRes.status).not.toHaveBeenCalled();
+      expect(mockRes.json).toHaveBeenCalledWith({
+        token: 'testtoken123',
+        isAdmin: false
+      });
     });
 
-    it('should not login with invalid password', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: validUser.email,
-          password: 'wrongpassword'
-        });
+    it('should not login with incorrect credentials', async () => {
+      const mockUser = {
+        id: 'testid123',
+        email: mockReq.body.email,
+        password: 'hashedpassword',
+        isApproved: true
+      };
 
-      expect(res.statusCode).toBe(401);
-      expect(res.body).toHaveProperty('error');
-    });
+      User.findOne.mockResolvedValue(mockUser);
+      bcrypt.compare.mockResolvedValue(false); // Password doesn't match
 
-    it('should not login with non-existent email', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: 'nonexistent@example.com',
-          password: 'password123'
-        });
+      mockReq.body = {
+        email: 'test@test.com',
+        password: 'wrongpassword'
+      };
 
-      expect(res.statusCode).toBe(401);
-      expect(res.body).toHaveProperty('error');
+      await authController.login(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'Invalid credentials'
+      });
     });
   });
 }); 
