@@ -53,7 +53,7 @@ jobs:
         git clone --single-branch --branch deploy https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} deploy-branch
 
         # Copy all files except .github to the deploy branch folder
-        rsync -av --delete --exclude='.github' ./ deploy-branch/
+        rsync -av --delete --exclude='.github' --exclude='.git' ./ deploy-branch/
 
         cd deploy-branch
         git add .
