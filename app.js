@@ -18,7 +18,7 @@ app.use(express.json());
 
 // Connect to MongoDB
 mongoose
-  .connect(config.database)
+  .connect(process.env.MONGODB_URI || config.database)
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => {
     console.error("Could not connect to MongoDB", err);
@@ -31,6 +31,9 @@ app.use("/api/users", userRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+// Health check route for Render
+app.get('/healthz', (req, res) => res.send('OK'));
 
 // Start server
 const PORT = process.env.PORT || 4000;
