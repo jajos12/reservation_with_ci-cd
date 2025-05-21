@@ -1,4 +1,6 @@
+const { ServerApiVersion } = require('mongodb');
+
 module.exports = {
-    database: 'mongodb://localhost/book_reservation_app',
-    secret: 'your_jwt_secret'
-  };
+    database: process.env.MONGODB_URI || 'mongodb://localhost:27017/book-reservation',
+    secret: process.env.JWT_SECRET || 'your_jwt_secret'
+};

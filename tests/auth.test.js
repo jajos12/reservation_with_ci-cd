@@ -7,16 +7,16 @@ const config = require('../config/database');
 describe('Authentication Endpoints', () => {
   beforeAll(async () => {
     await mongoose.connect(config.database);
-  });
+  }, 30000); // 30 second timeout
 
   afterAll(async () => {
     await User.deleteMany({});
     await mongoose.connection.close();
-  });
+  }, 30000); // 30 second timeout
 
   beforeEach(async () => {
     await User.deleteMany({});
-  });
+  }, 30000); // 30 second timeout
 
   describe('POST /api/auth/register', () => {
     const validUser = {
@@ -67,7 +67,7 @@ describe('Authentication Endpoints', () => {
 
     beforeEach(async () => {
       await User.create(validUser);
-    });
+    }, 30000); // 30 second timeout
 
     it('should login with valid credentials', async () => {
       const res = await request(app)

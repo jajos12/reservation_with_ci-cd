@@ -2,16 +2,13 @@ const mongoose = require('mongoose');
 const config = require('../config/database');
 
 describe('Database Connection', () => {
-  beforeAll(async () => {
-    await mongoose.connect(config.database);
+  it('should connect to MongoDB', () => {
+    expect(mongoose.connection.readyState).toBe(1); // 1 means connected
   });
 
-  afterAll(async () => {
-    await mongoose.connection.close();
-  });
-
-  it('should connect to the database', () => {
-    expect(mongoose.connection.readyState).toBe(1);
+  it('should have the correct database name', () => {
+    const dbName = mongoose.connection.name;
+    expect(dbName).toBe('book-reservation-test');
   });
 
   it('should handle connection errors gracefully', async () => {
