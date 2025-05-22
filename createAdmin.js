@@ -41,6 +41,6 @@ mongoose.connect(config.database, { useNewUrlParser: true, useUnifiedTopology: t
       console.error(err.message);
       mongoose.connection.close();
     }
-
+  }
   
   updateAdminUser();
