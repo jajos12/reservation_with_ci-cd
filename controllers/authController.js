@@ -27,6 +27,7 @@ exports.register = async (req, res) => {
     res.status(500).send("Server error");
   }
 };
+?
 
 exports.login = async (req, res) => {
   try {
