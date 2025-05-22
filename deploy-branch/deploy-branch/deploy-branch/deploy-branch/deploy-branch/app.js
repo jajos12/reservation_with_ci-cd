@@ -33,7 +33,7 @@ app.use("/api/reservations", reservationRoutes);
 app.use("/api/notifications", notificationRoutes);
 
 // Health check route for Render
-app.get('/healthz', (req, res) => res.send('Just changed this!'));
+app.get('/healthz', (req, res) => res.send('OK'));
 
 // Start server
 const PORT = process.env.PORT || 4000;
